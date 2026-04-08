@@ -1,17 +1,12 @@
 {
-  "name": "team-productivity",
+  "name": "team-productivity-server",
   "version": "1.0.0",
-  "description": "A productivity app for teams.",
-  "main": "main.js",
+  "main": "server.js",
   "scripts": {
-    "start": "electron ."
+    "start": "node server.js"
   },
-  "devDependencies": {
-    "electron": "^41.2.0"
-  },
-  "type": "commonjs",
   "dependencies": {
-    "electron-store": "^11.0.2",
-    "socket.io-client": "^4.8.3"
+    "express": "^4.18.2",
+    "socket.io": "^4.7.2"
   }
 }
