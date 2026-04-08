@@ -13,12 +13,14 @@ const io = new Server(server, {
 
 const PORT = process.env.PORT || 3000;
 
+// Health check
+app.get('/', (req, res) => {
+    res.send('OK');
+});
+
 // Room State Management
 const rooms = new Map();
 
-/**
- * Generate a random 6-character room code
- */
 function generateRoomCode() {
     return Math.random().toString(36).substring(2, 8).toUpperCase();
 }
@@ -28,12 +30,10 @@ io.on('connection', (socket) => {
     let currentRoomCode = null;
     let userName = null;
 
-    // Heartbeat
     socket.on('ping', () => {
         socket.emit('pong');
     });
 
-    // Create a new room
     socket.on('createRoom', (data) => {
         const code = generateRoomCode();
         const roomData = {
@@ -59,36 +59,28 @@ io.on('connection', (socket) => {
         console.log(`Room created: ${code} by ${data.name}`);
     });
 
-    // Join an existing room
     socket.on('joinRoom', (data) => {
         const room = rooms.get(data.code);
         if (room) {
             currentRoomCode = data.code;
             userName = data.name;
             
-            // Avoid duplicate users if reconnecting
             if (!room.users.find(u => u.name === data.name)) {
                 room.users.push({ id: socket.id, name: data.name });
             } else {
-                // Update identity for existing user name
                 room.users = room.users.map(u => u.name === data.name ? { id: socket.id, name: data.name } : u);
             }
 
             socket.join(data.code);
             socket.emit('roomData', room);
-            
-            // Sync current timer state to the new joiner
             socket.emit('timerSync', room.timer);
-            
-            // Notify others
             io.to(data.code).emit('roomData', room);
             console.log(`User ${data.name} joined room: ${data.code}`);
         } else {
-            socket.emit('error', 'Room not found');
+            socket.emit('joinError', 'Room not found');
         }
     });
 
-    // Task Updates
     socket.on('updateTasks', (tasks) => {
         const room = rooms.get(currentRoomCode);
         if (room) {
@@ -97,7 +89,6 @@ io.on('connection', (socket) => {
         }
     });
 
-    // Timer Synchronization (State Relay)
     socket.on('timerUpdate', (data) => {
         const room = rooms.get(currentRoomCode);
         if (room) {
@@ -106,7 +97,6 @@ io.on('connection', (socket) => {
         }
     });
 
-    // Timer Control (Pause/Resume/Reset)
     socket.on('timerControl', (data) => {
         const room = rooms.get(currentRoomCode);
         if (room) {
@@ -115,7 +105,6 @@ io.on('connection', (socket) => {
         }
     });
 
-    // End Session
     socket.on('endSession', () => {
         if (currentRoomCode) {
             io.to(currentRoomCode).emit('sessionEnded');
@@ -124,14 +113,12 @@ io.on('connection', (socket) => {
         }
     });
 
-    // Handle Disconnection
     socket.on('disconnect', () => {
         if (currentRoomCode) {
             const room = rooms.get(currentRoomCode);
             if (room) {
                 room.users = room.users.filter(u => u.id !== socket.id);
                 if (room.users.length === 0) {
-                    // Optional: delay deletion to allow reconnection
                     rooms.delete(currentRoomCode);
                     console.log(`Room ${currentRoomCode} abandoned and deleted.`);
                 } else {
